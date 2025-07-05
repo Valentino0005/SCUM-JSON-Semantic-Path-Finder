@@ -1,0 +1,107 @@
+{
+    "name": "json-semantic-path",
+    "displayName": "JSON Semantic Path",
+    "description": "Shows semantic paths for tree-structured JSON with Name properties",
+    "version": "0.2.0",
+    "publisher": "your-publisher-name",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yourusername/json-semantic-path.git"
+    },
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "categories": ["Other"],
+    "activationEvents": [
+        "onLanguage:json"
+    ],
+    "main": "./extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "jsonSemanticPath.copyPath",
+                "title": "Copy JSON Semantic Path (with quotes)"
+            },
+            {
+                "command": "jsonSemanticPath.copyPathPlain",
+                "title": "Copy JSON Semantic Path (plain)"
+            },
+            {
+                "command": "jsonSemanticPath.goToPath",
+                "title": "Go to JSON Semantic Path"
+            },
+            {
+                "command": "jsonSemanticPath.configurePaths",
+                "title": "Configure JSON Semantic Path Search"
+            }
+        ],
+        "configuration": {
+            "title": "JSON Semantic Path",
+            "properties": {
+                "jsonSemanticPath.searchPaths": {
+                    "type": "array",
+                    "default": ["**/*.json"],
+                    "description": "File patterns to search for JSON files",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "jsonSemanticPath.priorityFolders": {
+                    "type": "array",
+                    "default": ["**/Nodes/**", "**/Override/**", "**/Spawners/**"],
+                    "description": "Folder patterns to search first (higher priority)",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "jsonSemanticPath.copyPath",
+                    "when": "resourceExtname == .json",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "jsonSemanticPath.copyPathPlain",
+                    "when": "resourceExtname == .json",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "jsonSemanticPath.goToPath",
+                    "when": "resourceExtname == .json",
+                    "group": "navigation@3"
+                }
+            ]
+        },
+        "keybindings": [
+            {
+                "command": "jsonSemanticPath.copyPath",
+                "key": "ctrl+shift+c",
+                "when": "editorTextFocus && resourceExtname == .json"
+            },
+            {
+                "command": "jsonSemanticPath.copyPathPlain",
+                "key": "ctrl+shift+alt+c",
+                "when": "editorTextFocus && resourceExtname == .json"
+            },
+            {
+                "command": "jsonSemanticPath.goToPath",
+                "key": "ctrl+shift+g",
+                "when": "editorTextFocus && resourceExtname == .json"
+            },
+            {
+                "command": "jsonSemanticPath.configurePaths",
+                "key": "ctrl+shift+alt+g",
+                "when": "editorTextFocus && resourceExtname == .json"
+            }
+        ]
+    },
+    "scripts": {
+        "package": "vsce package"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.60.0"
+    }
+}
