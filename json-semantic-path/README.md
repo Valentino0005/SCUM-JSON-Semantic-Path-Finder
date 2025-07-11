@@ -4,12 +4,6 @@
 
 Transform complex JSON navigation from `Children[0].Children[2].Name` to readable paths like `"ItemLootTreeNodes.Military.Gear.Knives"`.
 
-## ⚡ Quick Start
-
-**📦 [Installation Guide](INSTALLATION.md)** • **📖 [Full Documentation](#features)** • **🎮 [SCUM Guide](docs/SCUM-Guide.md)**
-
-![Demo](docs/screenshots/demo.gif)
-
 ---
 
 ## 🚀 Features
