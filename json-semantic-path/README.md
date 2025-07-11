@@ -84,10 +84,8 @@ Children[0].Children[2].Children[1].Children[0].Name
 
 ## 📦 Installation
 
-**📋 [Complete Installation Guide](INSTALLATION.md)**
-
 **Quick install:**
-1. Download [latest release](releases/json-semantic-path-0.2.0.vsix)
+1. Download [latest release]
 2. VS Code → `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 3. Select downloaded file
 4. Restart VS Code
@@ -114,10 +112,10 @@ Customize search patterns in VS Code settings → `jsonSemanticPath`
 
 ## 📚 Documentation
 
-- **📦 [Installation Guide](INSTALLATION.md)** - Step-by-step setup
-- **🎮 [SCUM Server Guide](docs/SCUM-Guide.md)** - Game-specific tutorial
-- **📝 [Changelog](CHANGELOG.md)** - Version history
-- **🐛 [Issues](../../issues)** - Bug reports and feature requests
+- **📦 [Installation Guide]** - Step-by-step setup
+- **🎮 [SCUM Server Guide]** - Game-specific tutorial
+- **📝 [Changelog]** - Version history
+- **🐛 [Issues]** - Bug reports and feature requests
 
 ---
 
@@ -125,24 +123,15 @@ Customize search patterns in VS Code settings → `jsonSemanticPath`
 
 Found a bug or have a feature idea? 
 
-- **🐛 Report bugs**: [GitHub Issues](../../issues)
-- **💡 Suggest features**: [GitHub Discussions](../../discussions)
+- **🐛 Report bugs**:
+- **💡 Suggest features**:
 - **🔧 Submit fixes**: Pull requests welcome!
 
 ---
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
----
-
-## ⭐ Show Your Support
-
-If this extension helps your workflow:
-- ⭐ **Star this repository**
-- 🗣️ **Tell other developers**
-- 🐛 **Report issues** to help improve it
+MIT License - see [LICENSE] file for details.
 
 ---
 
