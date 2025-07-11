@@ -1,6 +1,16 @@
 # Change Log
 
-All notable changes to the "JSON Semantic Path" extension will be documented in this file.
+## [0.2.1] - 2025-07-05
+
+### Fixed
+- **Numeric Path Support**: Fixed regex pattern to properly detect semantic paths containing numeric segments (e.g., `"ItemLootTreeNodes.Military.Ammo.12Gauge.Boxed"`)
+- **Path Detection**: Paths starting with numbers like `12Gauge`, `357_Magnum`, `9mm_Para` now work correctly
+- **Code Quality**: Removed unused variables and cleaned up ESLint warnings
+- **SCUM Compatibility**: Enhanced support for SCUM server loot configurations with numeric ammunition types
+
+### Changed
+- Updated path validation regex from `[A-Za-z][A-Za-z0-9_]*` to `[A-Za-z0-9_][A-Za-z0-9_]*` to allow numeric prefixes
+- Improved error handling with cleaner catch blocks
 
 ## [0.2.0] - 2025-07-05
 
