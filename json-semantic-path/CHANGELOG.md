@@ -1,5 +1,7 @@
 # Change Log
 
+All notable changes to the "JSON Semantic Path" extension will be documented in this file.
+
 ## [0.2.1] - 2025-07-05
 
 ### Fixed
