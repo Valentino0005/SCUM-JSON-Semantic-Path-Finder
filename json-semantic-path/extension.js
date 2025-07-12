@@ -302,15 +302,34 @@ function activate(context) {
         return null;
     }
 
-    // FIXED: Enhanced path finding with context validation
+    // FIXED: Enhanced path finding with context validation and improved case-insensitive search
     function findPathInJson(obj, targetPath, fileContent) {
         // First, build a complete map of ALL paths and their exact positions
         const pathMap = buildCompletePathMap(obj, fileContent);
         
-        // Find exact match (case-insensitive)
-        const matchingEntry = pathMap.find(entry => 
+        // Try exact match first (case-insensitive)
+        let matchingEntry = pathMap.find(entry => 
             entry.semanticPath.toLowerCase() === targetPath.toLowerCase()
         );
+        
+        // If no exact match, try fuzzy matching for case sensitivity issues
+        if (!matchingEntry) {
+            const targetSegments = targetPath.toLowerCase().split('.');
+            matchingEntry = pathMap.find(entry => {
+                const entrySegments = entry.semanticPath.toLowerCase().split('.');
+                if (entrySegments.length !== targetSegments.length) return false;
+                
+                // Check each segment matches
+                return entrySegments.every((segment, index) => 
+                    segment === targetSegments[index]
+                );
+            });
+        }
+        
+        // If still no match, try a simpler validation without strict context checking
+        if (!matchingEntry) {
+            matchingEntry = findPathWithSimpleValidation(obj, targetPath, fileContent);
+        }
         
         if (matchingEntry) {
             // Convert text positions to VS Code positions
@@ -329,6 +348,60 @@ function activate(context) {
         }
         
         return null;
+    }
+
+    function findPathWithSimpleValidation(obj, targetPath, fileContent) {
+        // Fallback method with simpler validation for edge cases
+        const pathSegments = targetPath.split('.');
+        const targetLeafName = pathSegments[pathSegments.length - 1];
+        
+        function traverse(currentObj, currentPath = '', depth = 0) {
+            if (!currentObj || typeof currentObj !== 'object') return null;
+            
+            if (currentObj.Name) {
+                const newPath = currentPath ? `${currentPath}.${currentObj.Name}` : currentObj.Name;
+                
+                // Check if this path matches (case-insensitive)
+                if (newPath.toLowerCase() === targetPath.toLowerCase()) {
+                    // Find position of this object in the file
+                    const namePattern = `"Name"\\s*:\\s*"${escapeRegex(currentObj.Name)}"`;
+                    const regex = new RegExp(namePattern, 'g');
+                    let match;
+                    
+                    while ((match = regex.exec(fileContent)) !== null) {
+                        const objBounds = findObjectBoundsFromName(fileContent, match.index);
+                        if (objBounds) {
+                            // Simple validation - just check the name matches
+                            try {
+                                const objectText = fileContent.substring(objBounds.start, objBounds.end + 1);
+                                const parsedObj = JSON.parse(objectText);
+                                if (parsedObj.Name === currentObj.Name) {
+                                    return {
+                                        semanticPath: newPath,
+                                        namePosition: match.index,
+                                        name: currentObj.Name,
+                                        objectBounds: objBounds
+                                    };
+                                }
+                            } catch {
+                                continue;
+                            }
+                        }
+                    }
+                }
+                
+                // Continue searching children
+                if (currentObj.Children && Array.isArray(currentObj.Children)) {
+                    for (const child of currentObj.Children) {
+                        const result = traverse(child, newPath, depth + 1);
+                        if (result) return result;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        return traverse(obj);
     }
 
     function buildCompletePathMap(obj, fileContent) {
@@ -554,16 +627,23 @@ function activate(context) {
                     
                     progress.report({ increment: 100 });
                     
-                    // Show message with case correction if needed
-                    if (result.actualPath.toLowerCase() !== result.searchedPath.toLowerCase()) {
-                        vscode.window.showWarningMessage(`⚠️ Found similar path: ${result.actualPath} in ${result.fileName} (case mismatch)`);
-                    } else if (result.actualPath !== result.searchedPath) {
-                        vscode.window.showInformationMessage(`✅ Found: ${result.actualPath} in ${result.fileName} (corrected case)`);
+                    // Show appropriate message based on path matching
+                    if (result.actualPath !== result.searchedPath) {
+                        if (result.actualPath.toLowerCase() === result.searchedPath.toLowerCase()) {
+                            vscode.window.showInformationMessage(`✅ Found: ${result.actualPath} in ${result.fileName} (case corrected)`);
+                        } else {
+                            vscode.window.showInformationMessage(`✅ Found similar: ${result.actualPath} in ${result.fileName}`);
+                        }
                     } else {
                         vscode.window.showInformationMessage(`✅ Found: ${pathInfo.path} in ${result.fileName}`);
                     }
                 } else {
-                    vscode.window.showWarningMessage(`❌ Path "${pathInfo.path}" not found in any JSON files in workspace. Check spelling and case sensitivity.`);
+                    // Enhanced error message with case sensitivity hint
+                    const pathSegments = pathInfo.path.split('.');
+                    vscode.window.showWarningMessage(
+                        `❌ Path "${pathInfo.path}" not found. ` +
+                        `💡 Check: 1) Spelling 2) Case sensitivity (ammo vs Ammo) 3) File location in workspace`
+                    );
                 }
             } catch (error) {
                 vscode.window.showErrorMessage(`Error searching for path: ${error.message}`);
