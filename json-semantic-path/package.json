@@ -2,7 +2,7 @@
     "name": "json-semantic-path",
     "displayName": "JSON Semantic Path",
     "description": "Shows semantic paths for tree-structured JSON with Name properties",
-    "version": "0.2.1",
+    "version": "0.2.4",
     "publisher": "your-publisher-name",
     "repository": {
         "type": "git",

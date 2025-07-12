@@ -1,4 +1,4 @@
-// extension.js - Improved with smart folder detection and configuration
+// extension.js - Fixed navigation bug for duplicate node names
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
@@ -16,14 +16,14 @@ function activate(context) {
     statusBarItem.command = 'jsonSemanticPath.copyPath';
     statusBarItem.show();
 
-    // [Previous path finding functions remain the same...]
+    // Path finding functions
     function getSemanticPath(document, position) {
         try {
             const text = document.getText();
             const jsonObj = JSON.parse(text);
             const offset = document.offsetAt(position);
             return findSemanticPathAtPosition(text, jsonObj, offset);
-        } catch (error) {
+        } catch {
             return null;
         }
     }
@@ -49,7 +49,7 @@ function activate(context) {
             if (!currentObj || typeof currentObj !== 'object') return;
             if (currentObj.Name) {
                 const semanticPath = currentPath ? `${currentPath}.${currentObj.Name}` : currentObj.Name;
-                const positions = findObjectPositionsInContext(text, currentObj, semanticPath);
+                const positions = findObjectPositionsInContext(text, currentObj);
                 if (positions) {
                     map.push({
                         semanticPath,
@@ -71,7 +71,7 @@ function activate(context) {
         return map;
     }
 
-    function findObjectPositionsInContext(text, obj, semanticPath) {
+    function findObjectPositionsInContext(text, obj) {
         if (!obj.Name) return null;
         const nameValue = obj.Name;
         const namePattern = `"Name"\\s*:\\s*"${escapeRegex(nameValue)}"`;
@@ -137,7 +137,7 @@ function activate(context) {
             const targetKeys = Object.keys(targetObj).sort();
             const parsedKeys = Object.keys(parsedObj).sort();
             return targetKeys.every(key => parsedKeys.includes(key));
-        } catch (error) {
+        } catch {
             return false;
         }
     }
@@ -151,9 +151,9 @@ function activate(context) {
         const text = line.text;
         const cursorChar = position.character;
 
-        // Find path pattern around cursor - now handles quoted paths too
-        const quotedPathPattern = /"([\w\.]+)"/g;
-        const plainPathPattern = /[\w\.]+/g;
+        // Find path pattern around cursor - now handles quoted paths with hyphens
+        const quotedPathPattern = /"([\w\.\-]+)"/g;
+        const plainPathPattern = /[\w\.\-]+/g;
         
         // First try to find quoted paths
         let match;
@@ -163,7 +163,8 @@ function activate(context) {
             
             if (cursorChar >= start && cursorChar <= end) {
                 const pathString = match[1]; // Extract content without quotes
-                if (pathString.includes('.') && pathString.match(/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/)) {
+                // Updated regex to allow numbers at start of segments and hyphens (for paths like "Cal_30-06_Ammobox_AP")
+                if (pathString.includes('.') && pathString.match(/^[A-Za-z0-9_\-][A-Za-z0-9_\-]*(\.[A-Za-z0-9_\-][A-Za-z0-9_\-]*)+$/)) {
                     return {
                         path: pathString,
                         range: new vscode.Range(
@@ -182,7 +183,8 @@ function activate(context) {
             
             if (cursorChar >= start && cursorChar <= end) {
                 const pathString = match[0];
-                if (pathString.includes('.') && pathString.match(/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/)) {
+                // Updated regex to allow numbers at start of segments and hyphens (for paths like "Cal_30-06_Ammobox_AP")
+                if (pathString.includes('.') && pathString.match(/^[A-Za-z0-9_\-][A-Za-z0-9_\-]*(\.[A-Za-z0-9_\-][A-Za-z0-9_\-]*)+$/)) {
                     return {
                         path: pathString,
                         range: new vscode.Range(
@@ -209,9 +211,6 @@ function activate(context) {
         const searchPaths = config.get('searchPaths', ['**/*.json']);
         const priorityFolders = config.get('priorityFolders', ['**/Nodes/**', '**/Override/**']);
         
-        const pathComponents = semanticPath.split('.');
-        const rootName = pathComponents[0];
-
         // Build search patterns
         const allPatterns = [
             ...priorityFolders.map(folder => `${folder}/*.json`),
@@ -292,65 +291,156 @@ function activate(context) {
                     position: pathInfo.position,
                     range: pathInfo.range,
                     fileName: path.basename(filePath),
-                    actualPath: pathInfo.actualPath || semanticPath,  // Include actual path with correct casing
+                    actualPath: pathInfo.actualPath || semanticPath,
                     searchedPath: semanticPath
                 };
             }
-        } catch (error) {
+        } catch {
             // Skip invalid JSON files or access errors
             return null;
         }
         return null;
     }
 
+    // FIXED: Enhanced path finding with context validation
     function findPathInJson(obj, targetPath, fileContent) {
-        const pathComponents = targetPath.split('.');
+        // First, build a complete map of ALL paths and their exact positions
+        const pathMap = buildCompletePathMap(obj, fileContent);
         
-        function searchObject(currentObj, currentPath = '', startPos = 0) {
-            if (!currentObj || typeof currentObj !== 'object') return null;
+        // Find exact match (case-insensitive)
+        const matchingEntry = pathMap.find(entry => 
+            entry.semanticPath.toLowerCase() === targetPath.toLowerCase()
+        );
+        
+        if (matchingEntry) {
+            // Convert text positions to VS Code positions
+            const lines = fileContent.substring(0, matchingEntry.namePosition).split('\n');
+            const line = lines.length - 1;
+            const character = lines[lines.length - 1].length;
+            
+            return {
+                position: new vscode.Position(line, character),
+                range: new vscode.Range(
+                    line, character,
+                    line, character + matchingEntry.name.length
+                ),
+                actualPath: matchingEntry.semanticPath
+            };
+        }
+        
+        return null;
+    }
+
+    function buildCompletePathMap(obj, fileContent) {
+        const pathMap = [];
+        
+        function traverse(currentObj, currentPath = '', parentContext = []) {
+            if (!currentObj || typeof currentObj !== 'object') return;
             
             if (currentObj.Name) {
                 const newPath = currentPath ? `${currentPath}.${currentObj.Name}` : currentObj.Name;
+                const newContext = [...parentContext, currentObj.Name];
                 
-                // Check if this matches our target path (case-insensitive)
-                if (newPath.toLowerCase() === targetPath.toLowerCase()) {
-                    // Find the position of this object in the file
-                    const namePattern = `"Name"\\s*:\\s*"${escapeRegex(currentObj.Name)}"`;
-                    const regex = new RegExp(namePattern, 'g');
-                    let match;
-                    
-                    while ((match = regex.exec(fileContent)) !== null) {
-                        const objBounds = findObjectBoundsFromName(fileContent, match.index);
-                        if (objBounds && validateObjectByContent(fileContent, objBounds, currentObj)) {
-                            // Convert text positions to VS Code positions
-                            const lines = fileContent.substring(0, match.index).split('\n');
-                            const line = lines.length - 1;
-                            const character = lines[lines.length - 1].length;
-                            
-                            return {
-                                position: new vscode.Position(line, character),
-                                range: new vscode.Range(
-                                    line, character,
-                                    line, character + currentObj.Name.length
-                                ),
-                                actualPath: newPath  // Return the actual path with correct casing
-                            };
+                // Find ALL occurrences of this name in the file
+                const namePattern = `"Name"\\s*:\\s*"${escapeRegex(currentObj.Name)}"`;
+                const regex = new RegExp(namePattern, 'g');
+                let match;
+                
+                while ((match = regex.exec(fileContent)) !== null) {
+                    const objBounds = findObjectBoundsFromName(fileContent, match.index);
+                    if (objBounds) {
+                        // Validate this is the RIGHT object by checking its context
+                        if (validateObjectInContext(fileContent, objBounds, currentObj, newContext, newPath)) {
+                            pathMap.push({
+                                semanticPath: newPath,
+                                namePosition: match.index,
+                                name: currentObj.Name,
+                                objectBounds: objBounds,
+                                context: newContext
+                            });
+                            break; // Found the correct instance, stop searching
                         }
                     }
                 }
                 
-                // Continue searching in children
+                // Continue traversing children
                 if (currentObj.Children && Array.isArray(currentObj.Children)) {
                     for (const child of currentObj.Children) {
-                        const result = searchObject(child, newPath);
-                        if (result) return result;
+                        traverse(child, newPath, newContext);
                     }
                 }
             }
-            return null;
         }
         
-        return searchObject(obj);
+        traverse(obj);
+        return pathMap;
+    }
+
+    function validateObjectInContext(fileContent, bounds, targetObj, expectedContext, expectedPath) {
+        try {
+            const objectText = fileContent.substring(bounds.start, bounds.end + 1);
+            const parsedObj = JSON.parse(objectText);
+            
+            // Basic validation
+            if (parsedObj.Name !== targetObj.Name) return false;
+            if (targetObj.Rarity && parsedObj.Rarity !== targetObj.Rarity) return false;
+            
+            // Enhanced context validation - check if this object appears in the right place
+            // by examining the surrounding structure
+            const contextValidation = validatePathContext(fileContent, bounds, expectedContext);
+            if (!contextValidation) return false;
+            
+            // Additional validation: check if object properties match
+            const targetKeys = Object.keys(targetObj).sort();
+            const parsedKeys = Object.keys(parsedObj).sort();
+            
+            return targetKeys.every(key => parsedKeys.includes(key));
+        } catch {
+            return false;
+        }
+    }
+
+    function validatePathContext(fileContent, objectBounds, expectedContext) {
+        // Work backwards from the object to validate the path context
+        // This ensures we're at the right "Other" node by checking parent structure
+        
+        if (expectedContext.length <= 1) return true; // Root level objects
+        
+        try {
+            // Look for parent context by searching backwards for parent names
+            const beforeObject = fileContent.substring(0, objectBounds.start);
+            const parentName = expectedContext[expectedContext.length - 2]; // Parent node name
+            
+            // Check if parent name appears reasonably close before this object
+            const parentPattern = `"Name"\\s*:\\s*"${escapeRegex(parentName)}"`;
+            const parentMatches = [...beforeObject.matchAll(new RegExp(parentPattern, 'g'))];
+            
+            if (parentMatches.length === 0) return false;
+            
+            // Find the closest parent match
+            const lastParentMatch = parentMatches[parentMatches.length - 1];
+            const distanceToParent = objectBounds.start - (lastParentMatch.index + lastParentMatch[0].length);
+            
+            // If parent is too far away (more than 10000 chars), this might be wrong context
+            if (distanceToParent > 10000) return false;
+            
+            // Additional check for grandparent if available
+            if (expectedContext.length > 2) {
+                const grandParentName = expectedContext[expectedContext.length - 3];
+                const grandParentPattern = `"Name"\\s*:\\s*"${escapeRegex(grandParentName)}"`;
+                const grandParentMatches = [...beforeObject.matchAll(new RegExp(grandParentPattern, 'g'))];
+                
+                if (grandParentMatches.length > 0) {
+                    const lastGrandParentMatch = grandParentMatches[grandParentMatches.length - 1];
+                    // Grandparent should come before parent
+                    if (lastGrandParentMatch.index > lastParentMatch.index) return false;
+                }
+            }
+            
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     function updateStatusBar() {
@@ -401,7 +491,7 @@ function activate(context) {
         }
     });
 
-    // NEW: Copy path without quotes
+    // Copy path without quotes
     const copyPathPlainCommand = vscode.commands.registerCommand('jsonSemanticPath.copyPathPlain', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document.languageId !== 'json') {
@@ -420,7 +510,7 @@ function activate(context) {
         }
     });
 
-    // IMPROVED: Go to path with better error handling and progress
+    // Go to path with better error handling and progress
     const goToPathCommand = vscode.commands.registerCommand('jsonSemanticPath.goToPath', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -481,7 +571,7 @@ function activate(context) {
         });
     });
 
-    // NEW: Configure search paths command
+    // Configure search paths command
     const configureSearchCommand = vscode.commands.registerCommand('jsonSemanticPath.configurePaths', async () => {
         const result = await vscode.window.showQuickPick([
             {
