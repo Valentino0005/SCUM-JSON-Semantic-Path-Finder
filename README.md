@@ -87,7 +87,7 @@ Children[0].Children[2].Children[1].Children[0].Name
 **📋 [Complete Installation Guide]**
 
 **Quick install:**
-1. Download [latest release] releases/json-semantic-path-0.2.2.vsix
+1. Download [latest release] releases/json-semantic-path-x.x.x.vsix
 2. VS Code → `Ctrl+Shift+P` → `Extensions: Install from VSIX...`
 3. Select downloaded file
 4. Restart VS Code
