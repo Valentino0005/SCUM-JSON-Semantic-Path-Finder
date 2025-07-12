@@ -2,6 +2,26 @@
 
 All notable changes to the "JSON Semantic Path" extension will be documented in this file.
 
+## [0.2.5] - 2025-07-12
+
+### Fixed
+- **Case Sensitivity Issues**: Enhanced case-insensitive search to handle edge cases like `Military.Ammo.Regular` vs `Military.ammo.Regular`
+- **Fallback Search Algorithm**: Added simple validation fallback when complex context validation fails
+- **Improved Error Messages**: Better error messages that specifically mention case sensitivity issues
+- **Robust Path Matching**: Multiple layers of path matching for better reliability
+
+### Technical Improvements
+- Added `findPathWithSimpleValidation` function as fallback for edge cases
+- Enhanced `findPathInJson` with multiple matching strategies
+- Improved fuzzy matching for case sensitivity variations
+- Better error messaging with specific hints about common issues (spelling, case, file location)
+
+### Tested Scenarios
+- ✅ `ItemLootTreeNodes.Military.Ammo.Regular` → Now correctly finds `Military.ammo.Regular`
+- ✅ `ItemLootTreeNodes.Military.ammo.Regular` → Still works correctly
+- ✅ Mixed case paths in spawner files vs actual JSON structures
+- ✅ Fallback algorithm handles complex validation edge cases
+
 ## [0.2.4] - 2025-07-12
 
 ### Fixed
